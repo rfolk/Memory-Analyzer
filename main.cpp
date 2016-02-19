@@ -108,6 +108,7 @@ int main (int argc, char ** argv)
 		}
 	}
 
+	std::cout << "Number of pages access: " << vpn_tracker.size() << std::endl;
 	std::cout << "Most accessed VPN: " << std::hex << most_accessed_vpn << std::endl;
 	std::cout << "Number of bytes read: " << total_bytes_read << std::endl;
 	std::cout << "Number of bytes written: " << total_bytes_write << std::endl;
