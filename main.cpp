@@ -19,7 +19,7 @@ uint64_t total_faults = 0;
 
 int main (int argc, char ** argv)
 {
-	std::map<uint64_t, uint64_t> vpn_tracker;
+	std::map<uint64_t, PTE> vpn_tracker;
 	std::string filename;
 	std::ifstream trace_file;
 	int memory_size = 8; // default is 8B
@@ -81,11 +81,15 @@ int main (int argc, char ** argv)
 		auto search = vpn_tracker.find(this_key);
 		if (search != vpn_tracker.end())
 		{
-			vpn_tracker[this_key] = vpn_tracker[this_key] + 1;
+			PTE tmp = vpn_tracker[this_key];
+			tmp.num_accessed += 1;
+			vpn_tracker[this_key] = tmp;
 		}
 		else
 		{
-			vpn_tracker.insert(std::pair<uint64_t, uint64_t>(this_key, 1));
+			uint64_t index = 0;
+			PTE tmp = {this_key, true, 0, index, 1};
+			vpn_tracker.insert(std::pair<uint64_t, PTE>(this_key, tmp));
 		}
 		// std::cout << "num tokens: " << line_input.size() << std::endl;
 		// {
@@ -101,9 +105,9 @@ int main (int argc, char ** argv)
 	uint64_t num_access_vpn = 0;
 	for (auto& x: vpn_tracker)
 	{
-		if (x.second > num_access_vpn)
+		if (x.second.num_accessed > num_access_vpn)
 		{
-			num_access_vpn = x.second;
+			num_access_vpn = x.second.num_accessed;
 			most_accessed_vpn = x.first;
 		}
 	}
@@ -129,3 +133,19 @@ uint64_t get_VPN (uint64_t virtual_address)
 {
 	return virtual_address >> 12;
 }
+
+uint64_t hash_3rd_level (uint64_t virtual_address)
+{
+	return virtual_address >> 21;
+}
+
+uint64_t hash_2st_level (uint64_t virtual_address)
+{
+	return virtual_address >> 30;
+}
+
+uint64_t hash_1st_level (uint64_t virtual_address)
+{
+	return virtual_address >> 39;
+}
+

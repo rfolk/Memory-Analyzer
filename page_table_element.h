@@ -13,7 +13,10 @@
  typedef struct pte
  {
  	uint64_t VPN;
+ 	bool in_memory;
  	bool clock_bit;
+ 	uint64_t index;
+ 	uint64_t num_accessed;
  } PTE;
 
  #endif
