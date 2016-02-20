@@ -179,7 +179,7 @@ int main (int argc, char ** argv)
 	long double page_fault_rate = (long double) total_faults / (long double) total_accessed;
 
 	std::cout << "Number of pages access: " << vpn_tracker.size() << std::endl;
-	std::cout << "faults " << total_faults << " accessed " << total_accessed << std::endl;
+	//std::cout << "faults " << total_faults << " accessed " << total_accessed << std::endl;
 	std::cout << "Page fault rate: " << page_fault_rate << std::endl;
 	std::cout << "Most accessed VPN: " << std::hex << most_accessed_vpn << std::endl;
 	std::cout << "Number of bytes read: " << total_bytes_read << std::endl;
@@ -219,7 +219,7 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 		int level = memory_array[index].level;
 		if (key == 0)
 		{
-			std::cout << "0: " << index << std::endl;
+			//std::cout << "0: " << index << std::endl;
 			return index;
 		}
 		// clock bit is 1, set to 0, move on
@@ -232,7 +232,7 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 			}
 			else
 			{
-				std::cout << "lvl2: " << index << std::endl;
+				//std::cout << "lvl2: " << index << std::endl;
 				return index;
 			}
 		}
@@ -245,7 +245,7 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 			}
 			else
 			{
-				std::cout << "lvl3: " << index << std::endl;
+				//std::cout << "lvl3: " << index << std::endl;
 				return index;
 			}
 		}
@@ -258,7 +258,7 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 			}
 			else
 			{
-				std::cout << "lvl4: " << index << std::endl;
+				//std::cout << "lvl4: " << index << std::endl;
 				return index;
 			}
 		}
