@@ -207,6 +207,11 @@ uint64_t get_VPN (uint64_t virtual_address)
   */
 uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index)
 {
+	for (uint64_t i = 0; i < size; ++i)
+	{
+		if (memory_array[i].vpn == 0)
+			return i;
+	}
 	uint64_t index = last_index;
 	while (true)
 	{
@@ -214,6 +219,7 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 		int level = memory_array[index].level;
 		if (key == 0)
 		{
+			std::cout << "0: " << index << std::endl;
 			return index;
 		}
 		// clock bit is 1, set to 0, move on
@@ -226,6 +232,7 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 			}
 			else
 			{
+				std::cout << "lvl2: " << index << std::endl;
 				return index;
 			}
 		}
@@ -238,6 +245,7 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 			}
 			else
 			{
+				std::cout << "lvl3: " << index << std::endl;
 				return index;
 			}
 		}
@@ -250,6 +258,7 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 			}
 			else
 			{
+				std::cout << "lvl4: " << index << std::endl;
 				return index;
 			}
 		}
