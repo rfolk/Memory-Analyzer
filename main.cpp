@@ -11,18 +11,21 @@
 #include "page_table_element.h"
 
 uint64_t get_VPN (uint64_t);
+uint64_t get_next_index (uint64_t *, uint64_t, uint64_t);
 
 // a few global variables...
 uint64_t total_bytes_read = 0;
 uint64_t total_bytes_write = 0;
 uint64_t total_faults = 0;
+uint64_t total_accessed = 0;
+std::map<uint64_t, PTE> vpn_tracker;
 
 int main (int argc, char ** argv)
 {
-	std::map<uint64_t, PTE> vpn_tracker;
 	std::string filename;
 	std::ifstream trace_file;
-	int memory_size = 8; // default is 8B
+
+	uint64_t memory_size = 8*1024*1024; // default is 8B
 	// Check if all arguments are given in command line
 	if (argc != 3)
 	{
@@ -33,7 +36,14 @@ int main (int argc, char ** argv)
 	// Get the filename
 	filename.assign(argv[1]);
 	// Assign the memory size
-	memory_size = std::stoi(argv[2]);
+	memory_size = std::stol(argv[2], nullptr, 10);
+
+	// allocate array
+	uint64_t array_size = memory_size / 4194304;
+	uint64_t in_memory [array_size];
+	uint64_t array_index = 0;
+
+	std::cout << argv[2] << " " << memory_size << " " << array_size << std::endl;
 
 
 	// Open the file
@@ -69,6 +79,7 @@ int main (int argc, char ** argv)
 			continue;
 		}
 
+		total_accessed++;
 		virtual_address = std::stol(line_input[1], nullptr, 16);
 		this_key = get_VPN(virtual_address);
 		byte_size = std::stoi(line_input[2]);
@@ -81,14 +92,28 @@ int main (int argc, char ** argv)
 		auto search = vpn_tracker.find(this_key);
 		if (search != vpn_tracker.end())
 		{
-			PTE tmp = vpn_tracker[this_key];
-			tmp.num_accessed += 1;
-			vpn_tracker[this_key] = tmp;
+			// check if not in memory
+			if (!vpn_tracker[this_key].in_memory)
+			{
+				// find page to eject
+				array_index = get_next_index(in_memory, array_size, array_index);
+				vpn_tracker[in_memory[array_index]].in_memory = false;
+
+				// insert new page
+				in_memory[array_index] = this_key;
+				vpn_tracker[this_key].clock_bit = false;
+			}
+			else
+				vpn_tracker[this_key].clock_bit = true;
+			vpn_tracker[this_key].in_memory = true;
+			vpn_tracker[this_key].num_accessed += 1;
 		}
 		else
 		{
-			uint64_t index = 0;
-			PTE tmp = {this_key, true, 0, index, 1};
+			array_index = get_next_index(in_memory, array_size, array_index);
+			vpn_tracker[in_memory[array_index]].in_memory = false;
+			in_memory[array_index] = this_key;
+			PTE tmp = {this_key, true, false, array_index, 1};
 			vpn_tracker.insert(std::pair<uint64_t, PTE>(this_key, tmp));
 		}
 		// std::cout << "num tokens: " << line_input.size() << std::endl;
@@ -134,18 +159,29 @@ uint64_t get_VPN (uint64_t virtual_address)
 	return virtual_address >> 12;
 }
 
-uint64_t hash_3rd_level (uint64_t virtual_address)
+/**
+  * Find next viable index for fault
+  */
+uint64_t get_next_index (uint64_t * memory_array, uint64_t size, uint64_t last_index)
 {
-	return virtual_address >> 21;
+	uint64_t index = last_index;
+	while (true)
+	{
+		uint64_t key = memory_array[index];
+		if (key == 0)
+		{
+			return index;
+		}
+		// clock bit is 1, set to 0, move on
+		if (vpn_tracker[key].clock_bit)
+		{
+			vpn_tracker[key].clock_bit = false;
+			index = (index + 1) % size;
+		}
+		else
+		{
+			total_faults++;
+			return index;
+		}
+	}
 }
-
-uint64_t hash_2st_level (uint64_t virtual_address)
-{
-	return virtual_address >> 30;
-}
-
-uint64_t hash_1st_level (uint64_t virtual_address)
-{
-	return virtual_address >> 39;
-}
-
