@@ -199,6 +199,7 @@ int main (int argc, char ** argv)
 	std::cout << "Most accessed VPN: " << most_accessed_vpn << std::endl;
 	std::cout << "Number of bytes read: " << total_bytes_read << std::endl;
 	std::cout << "Number of bytes written: " << total_bytes_write << std::endl;
+	std::cout << "Memory footprint: " << (4 * 1024 * 1024 * (1 + vpn_tracker.size())) << std::endl;
 
 	delete [] in_memory;
 
