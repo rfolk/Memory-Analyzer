@@ -15,6 +15,7 @@ uint64_t get_VPN (uint64_t);
 uint64_t get_next_index (MEME *, uint64_t, uint64_t);
 void eject_from_memory (uint64_t, int);
 void insert_into_memory (MEME *, uint64_t, uint64_t, int);
+bool valid_address (std::string);
 
 // a few global variables...
 uint64_t total_bytes_read = 0;
@@ -47,7 +48,7 @@ int main (int argc, char ** argv)
 	MEME in_memory [array_size];
 	uint64_t array_index = 0;
 
-	std::cout << argv[2] << " " << memory_size << " " << array_size << std::endl;
+	//std::cout << argv[2] << " " << memory_size << " " << array_size << std::endl;
 
 
 	// Open the file
@@ -83,8 +84,14 @@ int main (int argc, char ** argv)
 			continue;
 		}
 
-		virtual_address = std::stol(line_input[1], nullptr, 16);
-		this_key = get_VPN(virtual_address);
+		if (!valid_address(line_input[1]))
+		{
+			line_input.clear();
+			continue;
+		}
+		line_input[1] = line_input[1].substr(0, line_input[1].size() - 3);
+		virtual_address = std::stoll(line_input[1], nullptr, 16);
+		this_key = virtual_address;//get_VPN(virtual_address);
 		byte_size = std::stoi(line_input[2]);
 
 		if (operation == 'R')
@@ -307,4 +314,14 @@ void insert_into_memory (MEME * in_memory, uint64_t index, uint64_t vpn, int lev
 		vpn_tracker[vpn].lvl_4_clock = 0;
 		vpn_tracker[vpn].lvl_4_mem = true;
 	}
+}
+
+/**
+  * Check for valid address...
+  */
+bool valid_address (std::string addr)
+{
+	return addr.compare(0, 2, "0x") == 0
+		&& addr.size() > 2
+		&& addr.find_first_not_of("0123456789abcdefABCDEF", 2) == std::string::npos;
 }
