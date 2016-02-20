@@ -9,9 +9,12 @@
 
 
 #include "page_table_element.h"
+#include "memory_element.h"
 
 uint64_t get_VPN (uint64_t);
-uint64_t get_next_index (uint64_t *, uint64_t, uint64_t);
+uint64_t get_next_index (MEME *, uint64_t, uint64_t);
+void eject_from_memory (uint64_t, int);
+void insert_into_memory (MEME *, uint64_t, uint64_t, int);
 
 // a few global variables...
 uint64_t total_bytes_read = 0;
@@ -40,7 +43,8 @@ int main (int argc, char ** argv)
 
 	// allocate array
 	uint64_t array_size = memory_size / 4194304;
-	uint64_t in_memory [array_size];
+	array_size--; // assume 1st level page table ALWAYS in memory
+	MEME in_memory [array_size];
 	uint64_t array_index = 0;
 
 	std::cout << argv[2] << " " << memory_size << " " << array_size << std::endl;
@@ -79,7 +83,6 @@ int main (int argc, char ** argv)
 			continue;
 		}
 
-		total_accessed++;
 		virtual_address = std::stol(line_input[1], nullptr, 16);
 		this_key = get_VPN(virtual_address);
 		byte_size = std::stoi(line_input[2]);
@@ -92,29 +95,66 @@ int main (int argc, char ** argv)
 		auto search = vpn_tracker.find(this_key);
 		if (search != vpn_tracker.end())
 		{
-			// check if not in memory
-			if (!vpn_tracker[this_key].in_memory)
+			// check if 2nd level not in memory
+			if (!vpn_tracker[this_key].lvl_2_mem)
 			{
 				// find page to eject
 				array_index = get_next_index(in_memory, array_size, array_index);
-				vpn_tracker[in_memory[array_index]].in_memory = false;
+				eject_from_memory (in_memory[array_index].vpn, in_memory[array_index].level);
 
 				// insert new page
-				in_memory[array_index] = this_key;
-				vpn_tracker[this_key].clock_bit = false;
+				insert_into_memory (in_memory, array_index, this_key, 2);
 			}
-			else
-				vpn_tracker[this_key].clock_bit = true;
-			vpn_tracker[this_key].in_memory = true;
+			else if (vpn_tracker[this_key].lvl_2_mem)
+			{
+				total_accessed++;
+				vpn_tracker[this_key].lvl_2_clock = 1;
+			}
+
+			// check if 3rd level not in memory
+			if (!vpn_tracker[this_key].lvl_3_mem)
+			{
+				// find page to eject
+				array_index = get_next_index(in_memory, array_size, array_index);
+				eject_from_memory (in_memory[array_index].vpn, in_memory[array_index].level);
+
+				// insert new page
+				insert_into_memory (in_memory, array_index, this_key, 3);
+			}
+			else if (vpn_tracker[this_key].lvl_3_mem)
+			{
+				total_accessed++;
+				vpn_tracker[this_key].lvl_3_clock = 1;
+			}
+
+			// check if 4th level not in memory
+			if (!vpn_tracker[this_key].lvl_4_mem)
+			{
+				// find page to eject
+				array_index = get_next_index(in_memory, array_size, array_index);
+				eject_from_memory (in_memory[array_index].vpn, in_memory[array_index].level);
+
+				// insert new page
+				insert_into_memory (in_memory, array_index, this_key, 4);
+			}
+			else if (vpn_tracker[this_key].lvl_4_mem)
+			{
+				total_accessed++;
+				vpn_tracker[this_key].lvl_4_clock = 1;
+			}
+
 			vpn_tracker[this_key].num_accessed += 1;
 		}
 		else
 		{
-			array_index = get_next_index(in_memory, array_size, array_index);
-			vpn_tracker[in_memory[array_index]].in_memory = false;
-			in_memory[array_index] = this_key;
-			PTE tmp = {this_key, true, false, array_index, 1};
-			vpn_tracker.insert(std::pair<uint64_t, PTE>(this_key, tmp));
+			PTE new_elem = {this_key, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+			vpn_tracker.insert(std::pair<uint64_t, PTE>(this_key, new_elem));
+			for (int i = 2; i < 5; ++i)
+			{
+				array_index = get_next_index(in_memory, array_size, array_index);
+				eject_from_memory (in_memory[array_index].vpn, in_memory[array_index].level);
+				insert_into_memory (in_memory, array_index, this_key, i);
+			}
 		}
 		// std::cout << "num tokens: " << line_input.size() << std::endl;
 		// {
@@ -124,7 +164,6 @@ int main (int argc, char ** argv)
 
 		line_input.clear();
 	}
-
 
 	uint64_t most_accessed_vpn = 0;
 	uint64_t num_access_vpn = 0;
@@ -137,7 +176,11 @@ int main (int argc, char ** argv)
 		}
 	}
 
+	long double page_fault_rate = (long double) total_faults / (long double) total_accessed;
+
 	std::cout << "Number of pages access: " << vpn_tracker.size() << std::endl;
+	std::cout << "faults " << total_faults << " accessed " << total_accessed << std::endl;
+	std::cout << "Page fault rate: " << page_fault_rate << std::endl;
 	std::cout << "Most accessed VPN: " << std::hex << most_accessed_vpn << std::endl;
 	std::cout << "Number of bytes read: " << total_bytes_read << std::endl;
 	std::cout << "Number of bytes written: " << total_bytes_write << std::endl;
@@ -162,26 +205,97 @@ uint64_t get_VPN (uint64_t virtual_address)
 /**
   * Find next viable index for fault
   */
-uint64_t get_next_index (uint64_t * memory_array, uint64_t size, uint64_t last_index)
+uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index)
 {
 	uint64_t index = last_index;
 	while (true)
 	{
-		uint64_t key = memory_array[index];
+		uint64_t key = memory_array[index].vpn;
+		int level = memory_array[index].level;
 		if (key == 0)
 		{
 			return index;
 		}
 		// clock bit is 1, set to 0, move on
-		if (vpn_tracker[key].clock_bit)
+		if (level == 2)
 		{
-			vpn_tracker[key].clock_bit = false;
-			index = (index + 1) % size;
+			if (vpn_tracker[key].lvl_2_clock)
+			{
+				vpn_tracker[key].lvl_2_clock = 0;
+				index = (index + 1) % size;
+			}
+			else
+			{
+				return index;
+			}
 		}
-		else
+		else if (level == 3)
 		{
-			total_faults++;
-			return index;
+			if (vpn_tracker[key].lvl_3_clock)
+			{
+				vpn_tracker[key].lvl_3_clock = 0;
+				index = (index + 1) % size;
+			}
+			else
+			{
+				return index;
+			}
 		}
+		else //if (level == 4)
+		{
+			if (vpn_tracker[key].lvl_4_clock)
+			{
+				vpn_tracker[key].lvl_4_clock = 0;
+				index = (index + 1) % size;
+			}
+			else
+			{
+				return index;
+			}
+		}
+	}
+}
+
+/**
+  * Eject an entry in memory
+  */
+void eject_from_memory (uint64_t vpn, int level)
+{
+	if (level == 2)
+	{
+		vpn_tracker[vpn].lvl_2_mem = false;
+	}
+	else if (level == 3)
+	{
+		vpn_tracker[vpn].lvl_3_mem = false;
+	}
+	else
+	{
+		vpn_tracker[vpn].lvl_4_mem = false;
+	}
+	total_faults++;
+	total_accessed++;
+}
+
+/**
+  * Insert an entry into memory
+  */
+void insert_into_memory (MEME * in_memory, uint64_t index, uint64_t vpn, int level)
+{
+	in_memory[index] = {vpn, level};
+	if (level == 2)
+	{
+		vpn_tracker[vpn].lvl_2_clock = 0;
+		vpn_tracker[vpn].lvl_2_mem = true;
+	}
+	else if (level == 3)
+	{
+		vpn_tracker[vpn].lvl_3_clock = 0;
+		vpn_tracker[vpn].lvl_3_mem = true;
+	}
+	else
+	{
+		vpn_tracker[vpn].lvl_4_clock = 0;
+		vpn_tracker[vpn].lvl_4_mem = true;
 	}
 }
