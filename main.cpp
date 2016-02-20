@@ -13,16 +13,17 @@
 
 uint64_t get_VPN (uint64_t);
 uint64_t get_next_index (MEME *, uint64_t, uint64_t);
-void eject_from_memory (uint64_t, int);
-void insert_into_memory (MEME *, uint64_t, uint64_t, int);
+void eject_from_memory (std::string, int);
+void insert_into_memory (MEME *, uint64_t, std::string, int);
 bool valid_address (std::string);
+bool valid_size (std::string);
 
 // a few global variables...
 uint64_t total_bytes_read = 0;
 uint64_t total_bytes_write = 0;
 uint64_t total_faults = 0;
 uint64_t total_accessed = 0;
-std::map<uint64_t, PTE> vpn_tracker;
+std::map<std::string, PTE> vpn_tracker;
 
 int main (int argc, char ** argv)
 {
@@ -45,7 +46,8 @@ int main (int argc, char ** argv)
 	// allocate array
 	uint64_t array_size = memory_size / 4194304;
 	array_size--; // assume 1st level page table ALWAYS in memory
-	MEME in_memory [array_size];
+	MEME * in_memory = new MEME[array_size];
+//	in_memory [array_size];
 	uint64_t array_index = 0;
 
 	//std::cout << argv[2] << " " << memory_size << " " << array_size << std::endl;
@@ -54,8 +56,8 @@ int main (int argc, char ** argv)
 	// Open the file
 	trace_file.open(filename);
 	char operation;
-	uint64_t virtual_address;
-	uint64_t this_key;
+	std::string virtual_address;
+	std::string this_key;
 	int byte_size;
 	std::string file_line;
 	std::vector<std::string> line_input;
@@ -84,14 +86,20 @@ int main (int argc, char ** argv)
 			continue;
 		}
 
+		line_input[1] = line_input[1].substr(0, line_input[1].size() - 3);
 		if (!valid_address(line_input[1]))
 		{
 			line_input.clear();
 			continue;
 		}
-		line_input[1] = line_input[1].substr(0, line_input[1].size() - 3);
-		virtual_address = std::stoll(line_input[1], nullptr, 16);
-		this_key = virtual_address;//get_VPN(virtual_address);
+		virtual_address = line_input[1];
+		this_key = line_input[1];//virtual_address;//get_VPN(virtual_address);
+
+		if (!valid_size(line_input[2]))
+		{
+			line_input.clear();
+			continue;
+		}
 		byte_size = std::stoi(line_input[2]);
 
 		if (operation == 'R')
@@ -155,7 +163,7 @@ int main (int argc, char ** argv)
 		else
 		{
 			PTE new_elem = {this_key, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-			vpn_tracker.insert(std::pair<uint64_t, PTE>(this_key, new_elem));
+			vpn_tracker.insert(std::pair<std::string, PTE>(this_key, new_elem));
 			for (int i = 2; i < 5; ++i)
 			{
 				array_index = get_next_index(in_memory, array_size, array_index);
@@ -172,7 +180,7 @@ int main (int argc, char ** argv)
 		line_input.clear();
 	}
 
-	uint64_t most_accessed_vpn = 0;
+	std::string most_accessed_vpn = "";
 	uint64_t num_access_vpn = 0;
 	for (auto& x: vpn_tracker)
 	{
@@ -188,9 +196,11 @@ int main (int argc, char ** argv)
 	std::cout << "Number of pages access: " << vpn_tracker.size() << std::endl;
 	//std::cout << "faults " << total_faults << " accessed " << total_accessed << std::endl;
 	std::cout << "Page fault rate: " << page_fault_rate << std::endl;
-	std::cout << "Most accessed VPN: " << std::hex << most_accessed_vpn << std::endl;
+	std::cout << "Most accessed VPN: " << most_accessed_vpn << std::endl;
 	std::cout << "Number of bytes read: " << total_bytes_read << std::endl;
 	std::cout << "Number of bytes written: " << total_bytes_write << std::endl;
+
+	delete [] in_memory;
 
 	// uint64_t hex_value = 0;
 	// std::cin >> std::hex >> hex_value;
@@ -216,19 +226,14 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 {
 	for (uint64_t i = 0; i < size; ++i)
 	{
-		if (memory_array[i].vpn == 0)
+		if (memory_array[i].vpn.empty())
 			return i;
 	}
 	uint64_t index = last_index;
 	while (true)
 	{
-		uint64_t key = memory_array[index].vpn;
+		std::string key = memory_array[index].vpn;
 		int level = memory_array[index].level;
-		if (key == 0)
-		{
-			//std::cout << "0: " << index << std::endl;
-			return index;
-		}
 		// clock bit is 1, set to 0, move on
 		if (level == 2)
 		{
@@ -275,7 +280,7 @@ uint64_t get_next_index (MEME * memory_array, uint64_t size, uint64_t last_index
 /**
   * Eject an entry in memory
   */
-void eject_from_memory (uint64_t vpn, int level)
+void eject_from_memory (std::string vpn, int level)
 {
 	if (level == 2)
 	{
@@ -296,7 +301,7 @@ void eject_from_memory (uint64_t vpn, int level)
 /**
   * Insert an entry into memory
   */
-void insert_into_memory (MEME * in_memory, uint64_t index, uint64_t vpn, int level)
+void insert_into_memory (MEME * in_memory, uint64_t index, std::string vpn, int level)
 {
 	in_memory[index] = {vpn, level};
 	if (level == 2)
@@ -324,4 +329,9 @@ bool valid_address (std::string addr)
 	return addr.compare(0, 2, "0x") == 0
 		&& addr.size() > 2
 		&& addr.find_first_not_of("0123456789abcdefABCDEF", 2) == std::string::npos;
+}
+
+bool valid_size (std::string size)
+{
+	return size.find_first_not_of("0123456789") == std::string::npos;
 }

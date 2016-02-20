@@ -5,14 +5,14 @@
   * Memory Element Structure
   */
 
- #ifndef MEMORY_ELEMENT
- #define MEMORY_ELEMENT
+#ifndef MEMORY_ELEMENT
+#define MEMORY_ELEMENT
 
- #include <cstdint>
+#include <string>
 
 typedef struct meme
 {
-	uint64_t vpn;
+	std::string vpn;
 	int level;
 } MEME;
 

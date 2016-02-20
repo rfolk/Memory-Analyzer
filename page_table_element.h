@@ -5,14 +5,15 @@
   * Page Table Element Structure
   */
 
- #ifndef PAGE_TABLE_ELEMENT
- #define PAGE_TABLE_ELEMENT
+#ifndef PAGE_TABLE_ELEMENT
+#define PAGE_TABLE_ELEMENT
 
- #include <cstdint>
+#include <cstdint>
+#include <string>
 
 typedef struct pte
 {
-	uint64_t VPN;
+	std::string VPN;
 	uint64_t num_accessed;
 
 	// page table level check
