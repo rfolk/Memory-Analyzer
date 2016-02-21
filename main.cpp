@@ -44,7 +44,7 @@ int main (int argc, char ** argv)
 	memory_size = std::stol(argv[2], nullptr, 10);
 
 	// allocate array
-	uint64_t array_size = memory_size / 4194304;
+	uint64_t array_size = memory_size / 4096;
 	array_size--; // assume 1st level page table ALWAYS in memory
 	MEME * in_memory = new MEME[array_size];
 //	in_memory [array_size];
@@ -199,7 +199,7 @@ int main (int argc, char ** argv)
 	std::cout << "Most accessed VPN: " << most_accessed_vpn << std::endl;
 	std::cout << "Number of bytes read: " << total_bytes_read << std::endl;
 	std::cout << "Number of bytes written: " << total_bytes_write << std::endl;
-	std::cout << "Memory footprint: " << (4 * 1024 * 1024 * (1 + vpn_tracker.size())) << std::endl;
+	std::cout << "Memory footprint: " << (4 * 1024 * (1 + vpn_tracker.size())) << std::endl;
 
 	delete [] in_memory;
 
