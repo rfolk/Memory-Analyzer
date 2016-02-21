@@ -1,2 +1,5 @@
 mem_analyzer
 .DS_Store
+*.out
+*.docx
+*.pdf
