@@ -195,7 +195,7 @@ int main (int argc, char ** argv)
 
 	long double page_fault_rate = (long double) total_faults / (long double) total_accessed;
 
-	std::cout << "Number of pages access: " << vpn_tracker.size() << std::endl;
+	std::cout << "Number of pages accessed: " << vpn_tracker.size() << std::endl;
 	//std::cout << "faults " << total_faults << " accessed " << total_accessed << std::endl;
 	std::cout << "Page fault rate: " << page_fault_rate << std::endl;
 	std::cout << "Most accessed VPN: " << most_accessed_vpn << std::endl;
