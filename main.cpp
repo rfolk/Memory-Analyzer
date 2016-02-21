@@ -25,12 +25,14 @@ uint64_t total_faults = 0;
 uint64_t total_accessed = 0;
 std::map<std::string, PTE> vpn_tracker;
 
+const int page_size = 4096;
+
 int main (int argc, char ** argv)
 {
 	std::string filename;
 	std::ifstream trace_file;
 
-	uint64_t memory_size = 8*1024*1024; // default is 8B
+	uint64_t memory_size = 8*1024*1024; // default is 8GB
 	// Check if all arguments are given in command line
 	if (argc != 3)
 	{
@@ -44,7 +46,7 @@ int main (int argc, char ** argv)
 	memory_size = std::stol(argv[2], nullptr, 10);
 
 	// allocate array
-	uint64_t array_size = memory_size / 4096;
+	uint64_t array_size = memory_size / page_size;
 	array_size--; // assume 1st level page table ALWAYS in memory
 	MEME * in_memory = new MEME[array_size];
 //	in_memory [array_size];
@@ -199,7 +201,7 @@ int main (int argc, char ** argv)
 	std::cout << "Most accessed VPN: " << most_accessed_vpn << std::endl;
 	std::cout << "Number of bytes read: " << total_bytes_read << std::endl;
 	std::cout << "Number of bytes written: " << total_bytes_write << std::endl;
-	std::cout << "Memory footprint: " << (4 * 1024 * (1 + vpn_tracker.size())) << std::endl;
+	std::cout << "Memory footprint: " << (page_size * (1 + vpn_tracker.size())) << std::endl;
 
 	delete [] in_memory;
 
